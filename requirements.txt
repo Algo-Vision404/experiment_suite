@@ -1,0 +1,9 @@
+pandas
+numpy
+pydantic
+scikit-learn
+pyyaml
+joblib
+rich
+scipy
+matplotlib
