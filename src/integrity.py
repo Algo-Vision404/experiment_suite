@@ -96,7 +96,7 @@ class IntegrityGuard:
         )
 
         # Premium Rich Output
-        table = Table(title="🛡️ Data Integrity Report", show_header=True, header_style="bold magenta")
+        table = Table(title="Data Integrity Report", show_header=True, header_style="bold magenta")
         table.add_column("Metric", style="dim")
         table.add_column("Value")
         
@@ -108,6 +108,6 @@ class IntegrityGuard:
         
         if warnings:
             for w in warnings:
-                console.print(f"[yellow]⚠ Warning:[/] {w}")
+                console.print(f"[yellow]Warning:[/] {w}")
         
         return report

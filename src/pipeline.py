@@ -38,7 +38,7 @@ class StandardPipeline:
                 drifts = self.guard.detect_drift(self.reference_df, X)
                 for d in drifts:
                     if d.drifted:
-                        console.print(Panel(f"🚨 [bold red]DRIFT DETECTED[/] in column: {d.column}\n(p-value: {d.p_value:.4f})", border_style="red"))
+                        console.print(Panel(f"[bold red]DRIFT DETECTED[/] in column: {d.column}\n(p-value: {d.p_value:.4f})", border_style="red"))
             else:
                 self.reference_df = X.copy() # Set first run as reference
             
@@ -53,7 +53,7 @@ class StandardPipeline:
         with console.status(f"[bold green]Fitting {self.name} pipeline..."):
             self.pipeline.fit(X, y, **fit_params)
         
-        console.print(f"✅ [bold green]{self.name}[/] model trained successfully!\n")
+        console.print(f"[bold green]{self.name}[/] model trained successfully!\n")
         return self
 
     def save(self, directory: str = "artifacts"):

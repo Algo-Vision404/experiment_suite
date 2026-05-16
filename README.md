@@ -1,48 +1,122 @@
-# ML Experimental Standardization Suite
+# ML Experimental Standardization Suite (EXSS)
 
-Experimental tools to reduce manual toil and improve reproducibility in machine learning workflows.
+[![Architecture](https://img.shields.io/badge/Architecture-Institutional--Grade-blueviolet)](#system-architecture)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](https://www.python.org/)
 
-## Components
+> **Autonomous Data Intelligence for High-Performance Machine Learning.**
 
-### 1. MLDataEngine (`src/engine.py`) - **NEW**
-- **Orchestration**: Automatically runs Ingestion -> Validation -> Cleaning -> Feature Engineering -> Final Validation.
-- **Audit Trail**: Generates a detailed history of every step, including hashes and statistics for reproducibility.
+The **Experimental Standardization Suite (EXSS)** is a production-ready orchestration layer designed to eliminate manual data preparation toil. It transforms raw, chaotic datasets into deterministic, model-ready features using advanced statistical heuristics and autonomous cleaning agents.
 
-### 2. AutoCleaner (`src/cleaning.py`) - **NEW**
-- **Deduplication**: Automatically identifies and removes duplicate rows.
-- **Smart Imputation**: Uses median for numeric and mode for categorical missing values.
-- **Clipping**: Automatically clips outliers at 1st and 99th percentiles.
+---
 
-### 3. FeatureOptimizer (`src/engineering.py`) - **NEW**
-- **Date Expansion**: Automatically converts date strings/columns into year, month, day, and day-of-week features.
-- **Frequency Encoding**: Encodes high-cardinality categorical features using frequency distributions.
+## Core Value Proposition
 
-### 4. IntegrityGuard (`src/integrity.py`)
-- **Schema Validation**: Ensures incoming data matches expected types and required columns.
-- **Data Hashing**: Generates SHA-256 signatures of datasets to detect data contamination or drift.
+-   **Deterministic Lineage**: Every dataset is cryptographically signed (SHA-256) and saved as a versioned artifact for 100% reproducibility.
+-   **Autonomous Optimization**: Intelligent agents analyze data distributions to dynamically inject cleaning and engineering steps.
+-   **Statistical Monitoring**: Integrated drift detection (KS-test) flags distribution shifts before they impact production models.
+-   **High-Fidelity Observability**: Real-time terminal dashboards provide institutional-grade telemetry on data health and pipeline performance.
 
-### 5. AutoGenerator (`src/autogen.py`)
-- **Recipe Engine**: Suggests preprocessing steps (Scaling, Encoding) based on data distribution.
-- **Schema Inference**: Automatically generates schemas from raw dataframes.
+## Quick Start
 
-## Getting Started
+### 1. Installation
+```powershell
+pip install -r requirements.txt
+```
 
-1. **Install dependencies**:
-   ```powershell
-   pip install -r requirements.txt
-   ```
+### 2. Execute Autonomous Pipeline
+```python
+from src import MLDataEngine, EngineConfig
 
-2. **Run the End-to-End Demo**:
-   ```powershell
-   python examples/auto_pipeline_demo.py
-   ```
+# Configure the institutional engine
+config = EngineConfig(
+    output_dir="./experiment_artifacts",
+    drift_threshold=0.01,
+    enable_persistence=True
+)
 
-3. **Run the Standard Pipeline Demo**:
-   ```powershell
-   python examples/demo_run.py
-   ```
+engine = MLDataEngine(config=config)
 
-## Goals
-- **Standardization**: Reduce "spaghetti" preprocessing scripts.
-- **Reproducibility**: If a model fails, the data hash and metadata tell you exactly what state caused it.
-- **Speed**: Automate the repetitive "Check nulls -> Check types -> Scaler" workflow.
+# Run orchestration with drift detection
+df = engine.run_pipeline(
+    input_path="current_data.csv",
+    reference_path="reference_data.csv", # Enable drift monitoring
+    target_column="conversion"
+)
+```
+
+## System Architecture
+
+EXSS is built on a modular, decoupled architecture that separates **Intelligence**, **Execution**, and **Reporting**.
+
+### High-Level Design
+
+```mermaid
+graph TD
+    A[Raw Data Source] --> B[Data Ingestor]
+    B --> C[Integrity Guard]
+    C --> D[Data Health Scout]
+    D --> E[Auto-Generator]
+    E --> F[Automated Pipeline]
+    
+    subgraph "Intelligent Pipeline"
+        F --> F1[Auto-Cleaner]
+        F1 --> F2[Feature Optimizer]
+        F2 --> F3[Anomaly Detector]
+        F3 --> F4[Drift Monitor]
+    end
+    
+    F4 --> G[Final Validation]
+    G --> H[Artifact Manager]
+    H --> I[Processed Data Artifact]
+    H --> J[Audit Trail & Metrics]
+    
+    subgraph "Observability Layer"
+        K[Spectacular Reporter]
+        L[CLI Live Dashboard]
+    end
+    
+    F -.-> K
+    G -.-> K
+    J -.-> L
+```
+
+### Core Components
+
+#### 1. The Intelligence Layer
+- **Auto-Generator**: Analyzes data distributions and infers optimal schemas.
+- **Data Health Scout**: Performs deep statistical analysis to detect target leakage and quality degradation.
+- **Anomaly Detector**: Uses statistical heuristics to flag outliers.
+- **Drift Monitor**: Uses Kolmogorov-Smirnov tests to detect distribution shifts against reference data.
+
+#### 2. The Execution Engine
+- **MLDataEngine**: The central orchestrator that manages the flow of data.
+- **EngineConfig**: Pydantic-based configuration management for institutional-grade control.
+- **Artifact Manager**: Versioned persistence layer for data (Parquet) and metadata (JSON).
+
+#### 3. The Integrity Guard
+- **SHA-256 Signatures**: Every dataset version is hashed to ensure complete lineage.
+- **Schema Enforcement**: Strict Pydantic-based validation of dataset contracts.
+
+#### 4. Observability & Reporting
+- **Rich-Native UI**: High-fidelity terminal dashboards provide real-time feedback.
+- **Audit Trails**: JSON-formatted logs for integration with experiment tracking systems.
+
+## Data Flow Pattern
+
+1.  **Ingestion**: Load data from CSV/Parquet and generate an initial integrity hash.
+2.  **Analysis**: Perform a comprehensive health check. If quality is below the "Golden Threshold", the pipeline halts.
+3.  **Dynamic Transformation**: The system applies cleaning and engineering steps based on the inferred schema and detected issues.
+4.  **Verification**: A final hash and schema check are performed to ensure the transformation was deterministic and safe.
+5.  **Artifact Generation**: The processed dataset and its corresponding metadata (audit trail) are saved as versioned artifacts.
+
+## Visual Intelligence
+
+The suite features a **Spectacular Reporter** powered by `Rich`, providing:
+-   **Live Progress Tracking**: Real-time status of multi-stage transformations.
+-   **Health Dashboards**: Visual breakdown of completeness, uniqueness, and information density.
+-   **Audit Trails**: Comprehensive JSON summaries of every transformation applied.
+
+---
+
+"Standardizing the chaos of experimental data."

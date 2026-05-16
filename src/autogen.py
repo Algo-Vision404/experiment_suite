@@ -67,7 +67,7 @@ class AutoGenerator:
         schema = cls.infer_schema(df)
         steps = cls.suggest_pipeline_steps(df)
         
-        table = Table(title="💎 ML Pipeline Recipe", show_header=True, header_style="bold yellow")
+        table = Table(title="ML Pipeline Recipe", show_header=True, header_style="bold yellow")
         table.add_column("Proposed Step", style="cyan")
         table.add_column("Configuration")
         table.add_column("Heuristic Reason")
