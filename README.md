@@ -47,9 +47,9 @@ df = engine.run_pipeline(
 
 ## System Architecture
 
-EXSS is built on a modular, decoupled architecture that separates **Intelligence**, **Execution**, and **Reporting**.
+EXSS is built on a modular, decoupled architecture that separates **Intelligence**, **Execution**, and **Reporting**. It follows a "Stateful Pipeline" pattern where every processing node is independent but governed by a central orchestration engine.
 
-### High-Level Design
+### High-Level Design (System Topology)
 
 ```mermaid
 graph TD
@@ -81,26 +81,26 @@ graph TD
     J -.-> L
 ```
 
-### Core Components
+### Core Components & Sub-Systems
 
 #### 1. The Intelligence Layer
-- **Auto-Generator**: Analyzes data distributions and infers optimal schemas.
-- **Data Health Scout**: Performs deep statistical analysis to detect target leakage and quality degradation.
-- **Anomaly Detector**: Uses statistical heuristics to flag outliers.
-- **Drift Monitor**: Uses Kolmogorov-Smirnov tests to detect distribution shifts against reference data.
+- **Auto-Generator**: Utilizes statistical distribution analysis to infer optimal data schemas and compression types.
+- **Data Health Scout**: Performs high-fidelity checks for target leakage, sparse features, and information density.
+- **Anomaly Detector**: Implements multi-strategy outlier detection (Z-Score & IQR) to filter noise.
+- **Drift Monitor**: Integrated Kolmogorov-Smirnov (KS) statistical testing to detect feature distribution shifts against reference benchmarks.
 
 #### 2. The Execution Engine
-- **MLDataEngine**: The central orchestrator that manages the flow of data.
-- **EngineConfig**: Pydantic-based configuration management for institutional-grade control.
-- **Artifact Manager**: Versioned persistence layer for data (Parquet) and metadata (JSON).
+- **MLDataEngine**: The primary system orchestrator. It manages the `PipelineContext` and ensures atomic execution of all nodes.
+- **EngineConfig**: A Pydantic-driven configuration layer providing strictly typed, environment-aware parameter management.
+- **Context Management**: A stateful container that tracks telemetry, hashes, and transformation history throughout the run.
 
-#### 3. The Integrity Guard
-- **SHA-256 Signatures**: Every dataset version is hashed to ensure complete lineage.
-- **Schema Enforcement**: Strict Pydantic-based validation of dataset contracts.
+#### 3. The Artifact & Integrity Layer
+- **Integrity Guard**: Enforces SHA-256 cryptographic signatures on every input/output state to guarantee data lineage.
+- **Artifact Manager**: A production-grade persistence engine that saves versioned datasets as **Parquet** (preserving schema integrity) and metadata as **JSON**.
 
-#### 4. Observability & Reporting
-- **Rich-Native UI**: High-fidelity terminal dashboards provide real-time feedback.
-- **Audit Trails**: JSON-formatted logs for integration with experiment tracking systems.
+#### 4. Observability Suite
+- **Spectacular Reporter**: A `Rich`-native telemetry dashboard providing sub-second feedback on pipeline performance and data health.
+- **Audit Trails**: Fully serialized transformation logs for institutional compliance and experiment tracking integration.
 
 ## Data Flow Pattern
 
