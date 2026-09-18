@@ -1,51 +1,52 @@
-import pandas as pd
 import logging
-from datetime import datetime
-from typing import Optional, Dict, Any, List
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 
+import pandas as pd
 from pydantic import BaseModel, Field
-from .ingestion import DataIngestor
-from .cleaning import AutoCleaner
-from .engineering import FeatureOptimizer
-from .integrity import IntegrityGuard, DataSchema
-from .autogen import AutoGenerator
-from .quality import DataHealthScout
-from .visualizer import SpectacularReporter
+
 from .anomaly import AnomalyDetector
 from .artifacts import ArtifactManager
+from .autogen import AutoGenerator
+from .cleaning import AutoCleaner
+from .engineering import FeatureOptimizer
+from .ingestion import DataIngestor
+from .integrity import DataSchema, IntegrityGuard
 from .monitoring import DriftMonitor
+from .provenance import capture_environment
+from .quality import DataHealthScout
+from .visualizer import SpectacularReporter
 
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger("MLDataEngine")
 
+
 class EngineConfig(BaseModel):
-    """Institutional configuration for the ML Data Engine."""
     output_dir: str = "./artifacts"
-    drift_threshold: float = 0.05
-    anomaly_threshold: float = 3.0
+    drift_threshold: float = Field(default=0.05, gt=0, lt=1)
+    anomaly_threshold: float = Field(default=3.0, gt=0)
     enable_persistence: bool = True
     stop_on_leakage: bool = False
+    random_seed: int = 42
+
 
 @dataclass
 class PipelineContext:
-    """Institutional state container for pipeline telemetry and metadata."""
-    start_time: datetime = field(default_factory=datetime.now)
+    start_time: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     input_path: str = ""
     config: EngineConfig = field(default_factory=EngineConfig)
     target_column: Optional[str] = None
     history: Dict[str, Any] = field(default_factory=dict)
     metrics: Dict[str, Any] = field(default_factory=dict)
-    
-    def record_step(self, step_name: str, metadata: Any):
+
+    def record_step(self, step_name: str, metadata: Any) -> None:
         self.history[step_name] = metadata
 
+
 class MLDataEngine:
-    """
-    Autonomous, institutional-grade data orchestration engine.
-    Manages the lifecycle of experimental data from ingestion to model-ready artifacts.
-    """
-    
+    """Orchestrates ingestion, quality, integrity, cleaning, engineering, and artifacts."""
+
     def __init__(self, config: Optional[EngineConfig] = None):
         self.config = config or EngineConfig()
         self.guard = IntegrityGuard()
@@ -55,92 +56,67 @@ class MLDataEngine:
         self.artifact_manager = ArtifactManager(base_dir=self.config.output_dir)
         self.monitor = DriftMonitor()
 
-    def run_pipeline(self, 
-                     input_path: str, 
-                     target_column: Optional[str] = None,
-                     schema: Optional[DataSchema] = None,
-                     reference_path: Optional[str] = None) -> pd.DataFrame:
-        """
-        Executes the autonomous pipeline with real-time telemetry, validation, and drift detection.
-        """
+    def run_pipeline(
+        self,
+        input_path: str,
+        target_column: Optional[str] = None,
+        schema: Optional[DataSchema] = None,
+        reference_path: Optional[str] = None,
+    ) -> pd.DataFrame:
         ctx = PipelineContext(input_path=input_path, config=self.config, target_column=target_column)
         self.reporter.welcome_banner()
-        
-        # 1. Ingestion & Cryptographic Signing
-        self.reporter.task_progress(["Ingesting Data", "Generating Cryptographic Hash"])
         df = DataIngestor.load(input_path)
         ctx.record_step("ingestion", {
             "hash": self.guard.get_data_hash(df),
-            "shape": df.shape,
-            "timestamp": datetime.now().isoformat()
+            "shape": list(df.shape),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         })
-        
-        # 2. Intelligence Layer: Health, Anomalies & Drift
-        tasks = ["Performing Health Audit", "Scanning for Anomalies"]
-        if reference_path:
-            tasks.append("Calculating Data Drift")
-            
-        self.reporter.task_progress(tasks)
+
         health_report = self.scout.calculate_health_score(df)
-        anomaly_report = self.detector.analyze(df)
-        
-        ctx.record_step("intelligence", {
-            "health": health_report,
-            "anomalies": anomaly_report
-        })
-        
+        anomaly_report = self.detector.analyze(df, threshold=self.config.anomaly_threshold)
+        ctx.record_step("intelligence", {"health": health_report, "anomalies": anomaly_report})
+
         if reference_path:
             ref_df = DataIngestor.load(reference_path)
-            drift_report = self.monitor.calculate_drift(ref_df, df, threshold=self.config.drift_threshold)
-            ctx.record_step("drift", drift_report)
-            if drift_report['drift_detected']:
-                self.reporter.console.print(f"[bold yellow]Warning:[/bold yellow] Significant Drift detected in: {drift_report['drifted_columns']}")
+            ctx.record_step("drift", self.monitor.calculate_drift(ref_df, df, self.config.drift_threshold))
 
         self.reporter.print_health_dashboard(health_report)
-        
+
         if target_column:
             leaky_cols = self.scout.detect_target_leakage(df, target_column)
             if leaky_cols:
-                self.reporter.console.print(f"[bold red]SECURITY ALERT:[/bold red] Potential Target Leakage in: {leaky_cols}")
                 ctx.record_step("alerts", {"target_leakage": leaky_cols})
                 if self.config.stop_on_leakage:
                     raise ValueError(f"Pipeline halted due to target leakage in: {leaky_cols}")
 
-        # 3. Dynamic Schema Inference & Validation
-        if not schema:
+        if schema is None:
             schema = AutoGenerator.infer_schema(df)
-        
         validation_report = self.guard.validate_schema(df, schema)
-        ctx.record_step("validation_initial", validation_report.dict())
+        if not validation_report.schema_valid:
+            raise ValueError(f"Input schema validation failed: {validation_report.warnings}")
+        ctx.record_step("validation_initial", validation_report.model_dump())
 
-        # 4. Autonomous Cleaning & Denoising
-        self.reporter.task_progress(["Executing Deduplication", "Adaptive Imputation", "Outlier Clipping"])
         cleaner = AutoCleaner(target_column=target_column)
         df = cleaner.clean(df)
         ctx.record_step("cleaning", cleaner.stats)
-        
-        # 5. Advanced Feature Engineering
-        self.reporter.task_progress(["Temporal Decomposition", "Frequency Encoding", "Structural Optimization"])
+
         df = FeatureOptimizer.engineer_features(df)
         ctx.record_step("engineering", {"engineered_columns": list(df.columns)})
-        
-        # 6. Final Integrity Handshake & Persistence
-        self.reporter.task_progress(["Final Integrity Verification", "Saving Versioned Artifacts"])
+
         final_schema = AutoGenerator.infer_schema(df)
         final_report = self.guard.validate_schema(df, final_schema)
-        
-        ctx.record_step("validation_final", final_report.dict())
-        ctx.metrics['processed_hash'] = final_report.data_hash
-        ctx.metrics['end_time'] = datetime.now().isoformat()
-        
+        ctx.record_step("validation_final", final_report.model_dump())
+        ctx.metrics.update({
+            "processed_hash": final_report.data_hash,
+            "end_time": datetime.now(timezone.utc).isoformat(),
+            "duration_seconds": (datetime.now(timezone.utc) - ctx.start_time).total_seconds(),
+            "environment": capture_environment(),
+        })
+
         if self.config.enable_persistence:
-            artifact_path = self.artifact_manager.save_run(df, ctx.history, ctx.metrics)
-            ctx.metrics['artifact_path'] = artifact_path
-        
+            ctx.metrics["artifact_path"] = self.artifact_manager.save_run(df, ctx.history, ctx.metrics)
         self.reporter.finish_summary(ctx.history | ctx.metrics)
         return df
 
     def get_summary(self, ctx: PipelineContext) -> Dict[str, Any]:
-        """Returns the full audit trail for the pipeline run."""
         return ctx.history | ctx.metrics
-

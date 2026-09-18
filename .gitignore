@@ -1,12 +1,12 @@
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
 .pytest_cache/
 .coverage
 htmlcov/
+.ruff_cache/
+.mypy_cache/
 .env
-.venv
+.venv/
 env/
 venv/
 ENV/

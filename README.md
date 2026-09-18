@@ -1,122 +1,119 @@
 # ML Experimental Standardization Suite (EXSS)
 
-[![Architecture](https://img.shields.io/badge/Architecture-Institutional--Grade-blueviolet)](#system-architecture)
+[![CI](https://github.com/Algo-Vision404/experiment_suite/actions/workflows/ci.yml/badge.svg)](https://github.com/Algo-Vision404/experiment_suite/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](https://www.python.org/)
 
-> **Autonomous Data Intelligence for High-Performance Machine Learning.**
+EXSS is a reproducible ML data-engineering toolkit for turning experimental datasets into auditable, model-ready artifacts. It combines ingestion, schema validation, data-health analysis, leakage checks, anomaly detection, drift monitoring, transformations, evaluation, provenance, and experiment tracking.
 
-The **Experimental Standardization Suite (EXSS)** is a production-ready orchestration layer designed to eliminate manual data preparation toil. It transforms raw, chaotic datasets into deterministic, model-ready features using advanced statistical heuristics and autonomous cleaning agents.
+## v2.1 upgrades
 
----
+- Deterministic full-data SHA-256 hashing with chunked processing.
+- Strict schema validation and explicit integrity warnings.
+- Numeric drift with KS plus normalized Wasserstein effect size.
+- Categorical drift with Jensen-Shannon divergence.
+- Row-aware Z-score and IQR anomaly reporting.
+- Configurable anomaly thresholds and reproducibility metadata.
+- Leakage-aware random, stratified, and group splitting helpers.
+- Standard classification and regression evaluation metrics.
+- Local experiment registry with run comparison.
+- Portable `exss` CLI.
+- Automated tests across Python 3.9, 3.11, and 3.12 plus Ruff linting.
+- Modern `pyproject.toml` packaging metadata and an MIT license.
 
-## Core Value Proposition
+## Quick start
 
--   **Deterministic Lineage**: Every dataset is cryptographically signed (SHA-256) and saved as a versioned artifact for 100% reproducibility.
--   **Autonomous Optimization**: Intelligent agents analyze data distributions to dynamically inject cleaning and engineering steps.
--   **Statistical Monitoring**: Integrated drift detection (KS-test) flags distribution shifts before they impact production models.
--   **High-Fidelity Observability**: Real-time terminal dashboards provide institutional-grade telemetry on data health and pipeline performance.
-
-## Quick Start
-
-### 1. Installation
-```powershell
-pip install -r requirements.txt
+Install:
+```bash
+pip install -e ".[dev]"
 ```
 
-### 2. Execute Autonomous Pipeline
+Profile a dataset:
+```bash
+exss profile data.csv
+```
+
+Compare reference/current distributions:
+```bash
+exss drift reference.csv current.csv --threshold 0.05
+```
+
+Python API:
 ```python
 from src import MLDataEngine, EngineConfig
 
-# Configure the institutional engine
-config = EngineConfig(
-    output_dir="./experiment_artifacts",
-    drift_threshold=0.01,
-    enable_persistence=True
-)
+engine = MLDataEngine(EngineConfig(
+    output_dir="./artifacts",
+    drift_threshold=0.05,
+    anomaly_threshold=3.0,
+    enable_persistence=True,
+) )
 
-engine = MLDataEngine(config=config)
-
-# Run orchestration with drift detection
-df = engine.run_pipeline(
+processed = engine.run_pipeline(
     input_path="current_data.csv",
-    reference_path="reference_data.csv", # Enable drift monitoring
-    target_column="conversion"
+    reference_path="reference_data.csv",
+    target_column="conversion",
 )
 ```
 
-## System Architecture
+## Architecture
 
-EXSS is built on a modular, decoupled architecture that separates **Intelligence**, **Execution**, and **Reporting**. It follows a "Stateful Pipeline" pattern where every processing node is independent but governed by a central orchestration engine.
-
-### High-Level Design (System Topology)
-
-```mermaid
-graph TD
-    A[Raw Data Source] --> B[Data Ingestor]
-    B --> C[Integrity Guard]
-    C --> D[Data Health Scout]
-    D --> E[Auto-Generator]
-    E --> F[Automated Pipeline]
-    
-    subgraph "Intelligent Pipeline"
-        F --> F1[Auto-Cleaner]
-        F1 --> F2[Feature Optimizer]
-        F2 --> F3[Anomaly Detector]
-        F3 --> F4[Drift Monitor]
-    end
-    
-    F4 --> G[Final Validation]
-    G --> H[Artifact Manager]
-    H --> I[Processed Data Artifact]
-    H --> J[Audit Trail & Metrics]
-    
-    subgraph "Observability Layer"
-        K[Spectacular Reporter]
-        L[CLI Live Dashboard]
-    end
-    
-    F -.-> K
-    G -.-> K
-    J -.-> L
+```text
+Data source
+   |
+   v
+Ingestion -> deterministic hash
+   |
+   +--> schema + integrity
+   +--> health + leakage + anomalies
+   +--> reference drift
+   v
+Cleaning -> feature engineering
+   v
+Final validation -> provenance -> artifact
+   +--> experiment registry
+   +--> evaluation
+   +--> run comparison
+   +--> CLI/reporting
 ```
 
-### Core Components & Sub-Systems
+## Design principles
 
-#### 1. The Intelligence Layer
-- **Auto-Generator**: Utilizes statistical distribution analysis to infer optimal data schemas and compression types.
-- **Data Health Scout**: Performs high-fidelity checks for target leakage, sparse features, and information density.
-- **Anomaly Detector**: Implements multi-strategy outlier detection (Z-Score & IQR) to filter noise.
-- **Drift Monitor**: Integrated Kolmogorov-Smirnov (KS) statistical testing to detect feature distribution shifts against reference benchmarks.
+**Reproducibility.** Persisted runs record input/output state, configuration, timestamps, and execution-environment metadata.
 
-#### 2. The Execution Engine
-- **MLDataEngine**: The primary system orchestrator. It manages the `PipelineContext` and ensures atomic execution of all nodes.
-- **EngineConfig**: A Pydantic-driven configuration layer providing strictly typed, environment-aware parameter management.
-- **Context Management**: A stateful container that tracks telemetry, hashes, and transformation history throughout the run.
+**Train/test safety.** Split before fitting transformations that learn statistics from data. The core cleaner is intentionally simple and should generally be applied to a training partition for model development.
 
-#### 3. The Artifact & Integrity Layer
-- **Integrity Guard**: Enforces SHA-256 cryptographic signatures on every input/output state to guarantee data lineage.
-- **Artifact Manager**: A production-grade persistence engine that saves versioned datasets as **Parquet** (preserving schema integrity) and metadata as **JSON**.
+**Statistical humility.** A p-value describes evidence under a statistical test, not business impact. EXSS reports effect-size context for numeric drift.
 
-#### 4. Observability Suite
-- **Spectacular Reporter**: A `Rich`-native telemetry dashboard providing sub-second feedback on pipeline performance and data health.
-- **Audit Trails**: Fully serialized transformation logs for institutional compliance and experiment tracking integration.
+**Failure visibility.** Schema violations, missing artifacts, invalid configuration, and malformed inputs fail explicitly.
 
-## Data Flow Pattern
+## Repository layout
 
-1.  **Ingestion**: Load data from CSV/Parquet and generate an initial integrity hash.
-2.  **Analysis**: Perform a comprehensive health check. If quality is below the "Golden Threshold", the pipeline halts.
-3.  **Dynamic Transformation**: The system applies cleaning and engineering steps based on the inferred schema and detected issues.
-4.  **Verification**: A final hash and schema check are performed to ensure the transformation was deterministic and safe.
-5.  **Artifact Generation**: The processed dataset and its corresponding metadata (audit trail) are saved as versioned artifacts.
+```text
+src/
+  engine.py          orchestration
+  ingestion.py       CSV/JSON/Parquet loading
+  integrity.py       hashing + schema validation
+  quality.py         data health + correlation leakage
+  leakage.py         additional leakage inspection
+  cleaning.py        deduplication + imputation + clipping
+  engineering.py     date + frequency features
+  anomaly.py         Z-score + IQR analysis
+  monitoring.py      numeric/categorical drift
+  splitting.py       leakage-aware data splitting
+  evaluation.py      standard model metrics
+  experiments.py     local run registry
+  provenance.py      environment capture
+  artifacts.py       persisted run artifacts
+  cli.py             command-line interface
 
-## Visual Intelligence
+tests/               unit + integration coverage
+examples/            runnable demonstrations
+.github/workflows/    CI
+```
 
-The suite features a **Spectacular Reporter** powered by `Rich`, providing:
--   **Live Progress Tracking**: Real-time status of multi-stage transformations.
--   **Health Dashboards**: Visual breakdown of completeness, uniqueness, and information density.
--   **Audit Trails**: Comprehensive JSON summaries of every transformation applied.
+## Scope
 
----
+EXSS is a toolkit, not a hosted ML platform or a replacement for domain-specific validation. Automated cleaning and statistical thresholds should be reviewed against the actual modeling and business context.
 
 "Standardizing the chaos of experimental data."

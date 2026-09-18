@@ -1,77 +1,69 @@
-import yaml
-import time
-import joblib
 import os
-import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
-from sklearn.pipeline import Pipeline
-from src.integrity import IntegrityGuard, DataSchema, DriftReport
+
+import joblib
+import pandas as pd
+import yaml
 from rich.console import Console
 from rich.panel import Panel
+from sklearn.pipeline import Pipeline
+
+from src.integrity import DataSchema, IntegrityGuard
+from src.provenance import capture_environment
 
 console = Console()
 
+
 class StandardPipeline:
-    """A standardized ML pipeline wrapper with auto-logging and integrity checks."""
-    
+    """Scikit-learn pipeline wrapper with schema, drift, metadata, and reproducibility checks."""
+
     def __init__(self, name: str, pipeline_steps: list, schema: Optional[DataSchema] = None):
+        if not name.strip():
+            raise ValueError("Pipeline name cannot be empty")
         self.name = name
         self.pipeline = Pipeline(steps=pipeline_steps)
         self.schema = schema
         self.guard = IntegrityGuard()
-        self.config: Dict[str, Any] = {}
         self.reference_df: Optional[pd.DataFrame] = None
         self.metadata: Dict[str, Any] = {
-            "created_at": datetime.now().isoformat(),
-            "runs": []
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "runs": [],
+            "environment": capture_environment(),
         }
 
     def fit(self, X, y, **fit_params):
-        """Fit with automatic integrity checks and drift detection."""
-        # 1. Integrity & Drift
+        X = X.copy() if hasattr(X, "copy") else X
         if self.schema:
             report = self.guard.validate_schema(X, self.schema)
-            
-            # Drift Check if we have reference data
+            if not report.schema_valid:
+                raise ValueError(f"Schema validation failed: {report.warnings}")
             if self.reference_df is not None:
                 drifts = self.guard.detect_drift(self.reference_df, X)
                 for d in drifts:
                     if d.drifted:
-                        console.print(Panel(f"[bold red]DRIFT DETECTED[/] in column: {d.column}\n(p-value: {d.p_value:.4f})", border_style="red"))
+                        console.print(Panel(
+                            f"[bold red]DRIFT DETECTED[/] in column: {d.column}\n"
+                            f"(p-value: {d.p_value:.4f})",
+                            border_style="red",
+                        ))
             else:
-                self.reference_df = X.copy() # Set first run as reference
-            
-            run_info = {
-                "timestamp": datetime.now().isoformat(),
+                self.reference_df = X.copy()
+            self.metadata["runs"].append({
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "data_hash": report.data_hash,
-                "row_count": report.row_count
-            }
-            self.metadata["runs"].append(run_info)
-
-        # 2. Fit Pipeline
-        with console.status(f"[bold green]Fitting {self.name} pipeline..."):
-            self.pipeline.fit(X, y, **fit_params)
-        
-        console.print(f"[bold green]{self.name}[/] model trained successfully!\n")
+                "row_count": len(X),
+            })
+        self.pipeline.fit(X, y, **fit_params)
         return self
 
     def save(self, directory: str = "artifacts"):
-        """Save the pipeline, config, and metadata for reproducibility."""
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-            
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        os.makedirs(directory, exist_ok=True)
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
         base_path = os.path.join(directory, f"{self.name}_{timestamp}")
-        
-        # Save Model
         joblib.dump(self.pipeline, f"{base_path}_model.joblib")
-        
-        # Save Metadata/Config
-        with open(f"{base_path}_meta.yaml", 'w') as f:
-            yaml.dump(self.metadata, f)
-            
-        print(f"[Repository] Artifacts saved to {base_path}*")
+        with open(f"{base_path}_meta.yaml", "w", encoding="utf-8") as f:
+            yaml.safe_dump(self.metadata, f, sort_keys=False)
         return base_path
 
     def predict(self, X):
