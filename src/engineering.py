@@ -37,7 +37,7 @@ class FeatureOptimizer:
     @staticmethod
     def _frequency_encode(df: pd.DataFrame) -> pd.DataFrame:
         """Encodes high-cardinality categorical features with frequencies."""
-        for col in df.select_dtypes(include=['object', 'category']).columns:
+       for col in df.select_dtypes(include=['object', 'str', 'category']).columns:
             if df[col].nunique() > 10:
                 freq = df[col].value_counts(normalize=True)
                 df[col + '_freq'] = df[col].map(freq)
