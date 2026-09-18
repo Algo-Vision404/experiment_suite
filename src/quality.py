@@ -56,16 +56,20 @@ class DataHealthScout:
 
     @staticmethod
     def detect_target_leakage(df: pd.DataFrame, target_col: str, threshold: float = 0.95) -> List[str]:
-        """Identifies features that are too highly correlated with the target."""
+        """Identifies numeric features whose correlation with the target meets the leakage threshold."""
         if target_col not in df.columns:
             return []
-            
+
+        if not 0 < threshold <= 1:
+            raise ValueError("threshold must be between 0 and 1")
+
         numeric_df = df.select_dtypes(include=[np.number])
         if target_col not in numeric_df.columns:
-            # Handle categorical target correlation? (Maybe later)
             return []
-            
-        correlations = numeric_df.corr()[target_col].abs().sort_values(ascending=False)
-        leaky_cols = correlations[(correlations > threshold) & (correlations < 1.0)].index.tolist()
-        
+
+        correlations = numeric_df.corr()[target_col].abs()
+        leaky_cols = correlations[
+            (correlations >= threshold) & (correlations.index != target_col)
+        ].index.tolist()
+
         return leaky_cols
